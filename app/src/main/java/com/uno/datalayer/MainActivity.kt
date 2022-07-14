@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
     private val capabilityClient by lazy { Wearable.getCapabilityClient(this) }
     private val nodeClient by lazy { Wearable.getNodeClient(this) }
 
-    private val handheldDataViewModel by viewModels<HandheldDataViewModel>()
+    private val clientDataViewModel by viewModels<ClientDataViewModel>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -96,10 +96,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        dataClient.addListener(handheldDataViewModel)
-        messageClient.addListener(handheldDataViewModel)
+        dataClient.addListener(clientDataViewModel)
+        messageClient.addListener(clientDataViewModel)
         capabilityClient.addListener(
-            handheldDataViewModel,
+            clientDataViewModel,
             Uri.parse("wear://"),
             CapabilityClient.FILTER_REACHABLE
         )
@@ -107,9 +107,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
-        dataClient.removeListener(handheldDataViewModel)
-        messageClient.removeListener(handheldDataViewModel)
-        capabilityClient.removeListener(handheldDataViewModel)
+        dataClient.removeListener(clientDataViewModel)
+        messageClient.removeListener(clientDataViewModel)
+        capabilityClient.removeListener(clientDataViewModel)
     }
 
     companion object {

@@ -16,7 +16,7 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.MessageClient
 import com.google.android.gms.wearable.MessageEvent
 
-class HandheldDataViewModel :
+class ClientDataViewModel :
     ViewModel(),
     DataClient.OnDataChangedListener,
     MessageClient.OnMessageReceivedListener,
