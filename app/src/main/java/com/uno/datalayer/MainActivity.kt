@@ -3,7 +3,10 @@ package com.uno.datalayer
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.ListView
+import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.viewModels
 import androidx.lifecycle.Lifecycle
@@ -12,6 +15,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.uno.datalayer.adapter.CustomAdapter
+import com.uno.datalayer.databinding.ActivityMainBinding
 import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
 import java.time.Duration
@@ -26,9 +31,12 @@ class MainActivity : ComponentActivity() {
 
     private val clientDataViewModel by viewModels<ClientDataViewModel>()
 
+    lateinit var binding: ActivityMainBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         var count = 0
 
@@ -48,9 +56,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        val launch = findViewById<Button>(R.id.launch)
-        launch.setOnClickListener {
+        binding.launch.setOnClickListener {
             startWearableActivity()
+        }
+
+        val adapter = CustomAdapter()
+        binding.listView.adapter = adapter
+
+        clientDataViewModel.liveList.observe(this) {
+            adapter.submitList(it)
+        }
+
+        clientDataViewModel.liveData.observe(this) {
+            binding.textView.text = it.toString()
         }
     }
 
