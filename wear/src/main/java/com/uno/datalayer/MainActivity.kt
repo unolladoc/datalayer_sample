@@ -1,11 +1,16 @@
 package com.uno.datalayer
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.Node
@@ -27,6 +32,17 @@ class MainActivity : ComponentActivity() {
 
     private var transcriptionNodeId: String? = null
 
+    private val requestPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+                Log.i("Permission: ", "Granted")
+            } else {
+                Log.i("Permission: ", "Denied")
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -35,8 +51,13 @@ class MainActivity : ComponentActivity() {
 
         binding.hear.setOnClickListener {
             getNodeId()
+            startListening()
         }
 
+    }
+
+    private fun startListening() {
+        requestPermission()
     }
 
     private fun getNodeId() {
@@ -140,6 +161,32 @@ class MainActivity : ComponentActivity() {
         dataClient.removeListener(clientDataViewModel)
         messageClient.removeListener(clientDataViewModel)
         capabilityClient.removeListener(clientDataViewModel)
+    }
+
+    private fun requestPermission() {
+        when {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                Log.i("Permission: ", "Already Granted")
+            }
+
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) -> {
+                Log.i("Permission: ", "Required")
+                    requestPermissionLauncher.launch(
+                        Manifest.permission.RECORD_AUDIO
+                    )
+            }
+            else -> {
+                requestPermissionLauncher.launch(
+                    Manifest.permission.RECORD_AUDIO
+                )
+            }
+        }
     }
 
     companion object {
