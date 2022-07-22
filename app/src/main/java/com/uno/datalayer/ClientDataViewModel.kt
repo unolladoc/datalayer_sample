@@ -1,24 +1,13 @@
 package com.uno.datalayer
 
-import android.graphics.Bitmap
+import android.util.Log
 import androidx.annotation.StringRes
-import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.MutableSnapshot
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.Transformations
 import androidx.lifecycle.ViewModel
-import com.google.android.gms.wearable.CapabilityClient
-import com.google.android.gms.wearable.CapabilityInfo
-import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.DataEvent
-import com.google.android.gms.wearable.DataEventBuffer
-import com.google.android.gms.wearable.MessageClient
-import com.google.android.gms.wearable.MessageEvent
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.google.android.gms.wearable.*
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class ClientDataViewModel :
     ViewModel(),
@@ -58,6 +47,14 @@ class ClientDataViewModel :
             text = messageEvent.toString()
         )
         addEvent(e)
+
+        if (messageEvent.path == VOICE_TRANSCRIPTION_MESSAGE_PATH){
+            val byteArray = messageEvent.data
+            val shorts = ShortArray(byteArray.size / 2)
+            ByteBuffer.wrap(byteArray).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shorts)
+
+            Log.d("ClientDataModel", shorts.toString())
+        }
     }
 
     override fun onCapabilityChanged(capabilityInfo: CapabilityInfo) {
@@ -70,6 +67,10 @@ class ClientDataViewModel :
 
     fun addEvent(event: Event){
         _liveList.value = _liveList.value?.plus(event) ?: listOf(event)
+    }
+
+    companion object {
+        const val VOICE_TRANSCRIPTION_MESSAGE_PATH = "/voice_transcription"
     }
 }
 
