@@ -26,8 +26,8 @@ class ClientDataViewModel :
     MessageClient.OnMessageReceivedListener,
     CapabilityClient.OnCapabilityChangedListener {
 
-    private val _events = mutableStateListOf<Event>()
-    val events: List<Event> = _events
+//    private val _events = mutableStateListOf<Event>()
+//    val events: List<Event> = _events
 
     private val _liveData = MutableLiveData<Event>()
     val liveData: LiveData<Event> = _liveData
@@ -36,36 +36,23 @@ class ClientDataViewModel :
     val liveList : LiveData<List<Event>> = _liveList
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
-        _events.addAll(
-            dataEvents.map { dataEvent ->
-                val title = when (dataEvent.type) {
-                    DataEvent.TYPE_CHANGED -> R.string.data_item_changed
-                    DataEvent.TYPE_DELETED -> R.string.data_item_deleted
-                    else -> R.string.data_item_unknown
-                }
 
-                val e = Event(
-                    title = title,
-                    text = dataEvent.dataItem.toString()
-                )
-
-                addEvent(e)
-
-                Event(
-                    title = title,
-                    text = dataEvent.dataItem.toString()
-                )
+        dataEvents.map { dataEvent ->
+            val title = when (dataEvent.type) {
+                DataEvent.TYPE_CHANGED -> R.string.data_item_changed
+                DataEvent.TYPE_DELETED -> R.string.data_item_deleted
+                else -> R.string.data_item_unknown
             }
-        )
+            val e = Event(
+                title = title,
+                text = dataEvent.dataItem.toString()
+            )
+            addEvent(e)
+        }
+
     }
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        _events.add(
-            Event(
-                title = R.string.message_from_watch,
-                text = messageEvent.toString()
-            )
-        )
         val e = Event(
             title = R.string.message_from_watch,
             text = messageEvent.toString()
@@ -74,12 +61,6 @@ class ClientDataViewModel :
     }
 
     override fun onCapabilityChanged(capabilityInfo: CapabilityInfo) {
-        _events.add(
-            Event(
-                title = R.string.capability_changed,
-                text = capabilityInfo.toString()
-            )
-        )
         val e = Event(
             title = R.string.capability_changed,
             text = capabilityInfo.toString()

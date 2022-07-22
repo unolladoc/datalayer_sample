@@ -41,5 +41,6 @@ dependencies {
     implementation 'androidx.compose.runtime:runtime:1.1.1'
     implementation 'androidx.activity:activity-ktx:1.5.0'
 
-    implementation 'org.tensorflow:tensorflow-lite-task-audio:0.4.1'
+    implementation 'org.tensorflow:tensorflow-lite-task-audio:0.4.1' //unused
+    implementation 'androidx.appcompat:appcompat:1.4.2' //unused
 }

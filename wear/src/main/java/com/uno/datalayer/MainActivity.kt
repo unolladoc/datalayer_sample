@@ -2,13 +2,18 @@ package com.uno.datalayer
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -17,8 +22,13 @@ import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
 import com.uno.datalayer.databinding.ActivityMainBinding
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +41,19 @@ class MainActivity : ComponentActivity() {
     private val clientDataViewModel by viewModels<ClientDataViewModel>()
 
     private var transcriptionNodeId: String? = null
+
+    private var recorder: MediaRecorder? = null
+
+    private val descriptors: Array<ParcelFileDescriptor> = ParcelFileDescriptor.createPipe()
+    private val parcelRead = ParcelFileDescriptor(descriptors[0])
+    private val parcelWrite = ParcelFileDescriptor(descriptors[1])
+
+    val inputStream: InputStream = ParcelFileDescriptor.AutoCloseInputStream(parcelRead)
+
+    lateinit var audioRecord: AudioRecord
+    private var hearState: Boolean = false
+
+    private val byteArrayOutputStream = ByteArrayOutputStream()
 
     private val requestPermissionLauncher =
         registerForActivityResult(
@@ -49,15 +72,49 @@ class MainActivity : ComponentActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.hear.setOnClickListener {
-            getNodeId()
-            startListening()
+//        binding.hear.setOnClickListener {
+//            getNodeId()
+//            startListening()
+//        }
+
+        binding.hear.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                hearState = true
+                getNodeId()
+                startListening()
+            } else {
+                hearState = false
+                stopListening()
+            }
         }
 
     }
 
     private fun startListening() {
         requestPermission()
+        lifecycleScope.launch {
+            if (ActivityCompat.checkSelfPermission(
+                    applicationContext,
+                    Manifest.permission.RECORD_AUDIO
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return@launch
+            }
+            Log.d(TAG, "Start Listening")
+            record()
+        }
+    }
+
+    private fun stopListening() {
+        audioRecord.stop()
+        Log.d(TAG, "Stopped Listening")
     }
 
     private fun getNodeId() {
@@ -189,9 +246,61 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    suspend fun record(){
+        audioRecord = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.MIC)
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setSampleRate(RECORDING_RATE)
+                    .setChannelMask(CHANNEL_IN)
+                    .setEncoding(FORMAT)
+                    .build()
+            )
+            .setBufferSizeInBytes(intSize * 3)
+            .build()
+
+        audioRecord.startRecording()
+        Log.d(TAG, "Recording started")
+
+        bufferedFile()
+    }
+
+    private suspend fun bufferedFile(){
+        try {
+            withContext(Dispatchers.IO) {
+                applicationContext.openFileOutput(OUTPUT_FILE_NAME, MODE_PRIVATE)
+                    .buffered()
+                    .use { bufferedOutputStream ->
+                        val buffer = ByteArray(intSize)
+                        while (hearState) {
+                            val read = audioRecord.read(buffer, 0, buffer.size)
+                            bufferedOutputStream.write(buffer, 0, read)
+                            Log.d(TAG, "Recording buffering")
+
+                            byteArrayOutputStream.write(buffer, 0, read)
+
+                            requestTranscription(byteArrayOutputStream.toByteArray())
+                        }
+                    }
+            }
+        } finally {
+            audioRecord.release()
+            Log.d(TAG, "Recording released")
+        }
+    }
+
     companion object {
         private const val TAG = "MainActivity"
         const val VOICE_TRANSCRIPTION_MESSAGE_PATH = "/voice_transcription"
         private const val MODEL_FILE = "yamnet.tflite"
+
+        private const val RECORDING_RATE = 8000 // can go up to 44K, if needed
+        private const val CHANNEL_IN = AudioFormat.CHANNEL_IN_MONO
+        private const val CHANNELS_OUT = AudioFormat.CHANNEL_OUT_MONO
+        private const val FORMAT = AudioFormat.ENCODING_PCM_16BIT
+        private const val OUTPUT_FILE_NAME = "audio.pcm"
+
+        private val intSize = AudioRecord.getMinBufferSize(RECORDING_RATE, CHANNEL_IN, FORMAT)
     }
 }
