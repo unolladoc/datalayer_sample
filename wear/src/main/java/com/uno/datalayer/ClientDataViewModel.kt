@@ -26,7 +26,15 @@ class ClientDataViewModel(
     private val _message = MutableLiveData<String>()
     val message: LiveData<String> = _message
 
+    private val  _appConnected = MutableLiveData<Boolean>()
+    val appConnected: LiveData<Boolean> = _appConnected
+
     private var getMessageJob: Job = Job().apply { complete() }
+    private var getAppStatusJob: Job = Job().apply { complete() }
+
+    init {
+        _appConnected.value = false
+    }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         _events.addAll(
@@ -56,6 +64,12 @@ class ClientDataViewModel(
                                                     .getString(MESSAGE_KEY)
                             }
                         }
+                        COUNT_PATH -> {
+                            getAppStatusJob.cancel()
+                            getAppStatusJob = viewModelScope.launch {
+                                _appConnected.value = true
+                            }
+                        }
                     }
                 }
             }
@@ -81,6 +95,8 @@ class ClientDataViewModel(
     }
 
     companion object {
+        private const val COUNT_PATH = "/count"
+        private const val COUNT_KEY = "count"
         private const val MESSAGE_PATH = "/message"
         private const val MESSAGE_KEY = "message"
     }

@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,19 +17,20 @@ import androidx.activity.viewModels
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
 import com.uno.datalayer.databinding.ActivityMainBinding
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.time.Duration
+import java.time.Instant
 
 
 class MainActivity : ComponentActivity() {
@@ -38,6 +40,7 @@ class MainActivity : ComponentActivity() {
     private val dataClient by lazy { Wearable.getDataClient(this) }
     private val messageClient by lazy { Wearable.getMessageClient(this) }
     private val capabilityClient by lazy { Wearable.getCapabilityClient(this) }
+    private val nodeClient by lazy { Wearable.getNodeClient(this) }
 
     private val clientDataViewModel by viewModels<ClientDataViewModel>()
 
@@ -51,7 +54,9 @@ class MainActivity : ComponentActivity() {
 
     val inputStream: InputStream = ParcelFileDescriptor.AutoCloseInputStream(parcelRead)
 
-    lateinit var audioRecord: AudioRecord
+    var checkAppConnectedJob: Job = Job().apply { complete() }
+
+    private lateinit var audioRecord: AudioRecord
     private var hearState: Boolean = false
 
     private val byteArrayOutputStream = ByteArrayOutputStream()
@@ -73,10 +78,9 @@ class MainActivity : ComponentActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-//        binding.hear.setOnClickListener {
-//            getNodeId()
-//            startListening()
-//        }
+        binding.openApp.setOnClickListener {
+            startHandheldActivity()
+        }
 
         binding.hear.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
@@ -93,6 +97,36 @@ class MainActivity : ComponentActivity() {
             binding.text.text = it.toString()
         }
 
+        clientDataViewModel.appConnected.observe(this) { value ->
+            checkAppConnectedJob.cancel()
+            var count = 0
+
+            if (value) {
+                binding.openApp.visibility = View.GONE
+//                Toast.makeText(this, "App Connected", Toast.LENGTH_SHORT).show()
+            } else {
+                binding.openApp.visibility = View.VISIBLE
+            }
+            //checks if app is still connected
+            checkAppConnectedJob = lifecycleScope.launch {
+                var lastTriggerTime = Instant.now() - (countInterval - Duration.ofSeconds(1))
+                while (isActive) {
+                    delay(
+                        Duration.between(Instant.now(), lastTriggerTime + countInterval).toMillis()
+                    )
+                    lastTriggerTime = Instant.now()
+
+                    if (count > 5){
+                        binding.openApp.visibility = View.VISIBLE
+//                        Toast.makeText(applicationContext, "App NOT Connected", Toast.LENGTH_SHORT).show()
+                    }
+
+                    Log.d(TAG, "Count: $count")
+
+                    count++
+                }
+            }
+        }
     }
 
     private fun startListening() {
@@ -295,8 +329,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkIfAppIsOpened() {
+    private fun startHandheldActivity() {
+        lifecycleScope.launch {
+            try {
+                val nodes = nodeClient.connectedNodes.await()
 
+                // Send a message to all nodes in parallel
+                nodes.map { node ->
+                    async {
+                        messageClient.sendMessage(node.id, START_ACTIVITY_PATH, byteArrayOf())
+                            .await()
+                    }
+                }.awaitAll()
+
+                Log.d(TAG, "Starting activity requests sent successfully")
+            } catch (cancellationException: CancellationException) {
+                throw cancellationException
+            } catch (exception: Exception) {
+                Log.d(TAG, "Starting activity failed: $exception")
+            }
+        }
     }
 
     companion object {
@@ -311,5 +363,7 @@ class MainActivity : ComponentActivity() {
         private const val OUTPUT_FILE_NAME = "audio.pcm"
 
         private val intSize = AudioRecord.getMinBufferSize(RECORDING_RATE, CHANNEL_IN, FORMAT)
+        private val countInterval = Duration.ofSeconds(5)
+        private const val START_ACTIVITY_PATH = "/start-activity"
     }
 }
