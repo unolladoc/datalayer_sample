@@ -1,16 +1,17 @@
 package com.uno.datalayer
 
 import android.app.Application
+import android.os.Message
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.AndroidViewModel
-import com.google.android.gms.wearable.CapabilityClient
-import com.google.android.gms.wearable.CapabilityInfo
-import com.google.android.gms.wearable.DataClient
-import com.google.android.gms.wearable.DataEvent
-import com.google.android.gms.wearable.DataEventBuffer
-import com.google.android.gms.wearable.MessageClient
-import com.google.android.gms.wearable.MessageEvent
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import com.google.android.gms.wearable.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 class ClientDataViewModel(
     application: Application
@@ -21,6 +22,11 @@ class ClientDataViewModel(
     CapabilityClient.OnCapabilityChangedListener {
 
     private val _events = mutableStateListOf<Event>()
+
+    private val _message = MutableLiveData<String>()
+    val message: LiveData<String> = _message
+
+    private var getMessageJob: Job = Job().apply { complete() }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         _events.addAll(
@@ -37,6 +43,23 @@ class ClientDataViewModel(
                 )
             }
         )
+
+        dataEvents.forEach { dataEvent ->
+            when (dataEvent.type) {
+                DataEvent.TYPE_CHANGED -> {
+                    when (dataEvent.dataItem.uri.path) {
+                        MESSAGE_PATH -> {
+                            getMessageJob.cancel()
+                            getMessageJob = viewModelScope.launch {
+                                _message.value = DataMapItem.fromDataItem(dataEvent.dataItem)
+                                                    .dataMap
+                                                    .getString(MESSAGE_KEY)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -55,6 +78,11 @@ class ClientDataViewModel(
                 text = capabilityInfo.toString()
             )
         )
+    }
+
+    companion object {
+        private const val MESSAGE_PATH = "/message"
+        private const val MESSAGE_KEY = "message"
     }
 
     data class Event(

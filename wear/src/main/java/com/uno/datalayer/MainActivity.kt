@@ -89,6 +89,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        clientDataViewModel.message.observe(this) {
+            binding.text.text = it.toString()
+        }
+
     }
 
     private fun startListening() {
@@ -289,6 +293,10 @@ class MainActivity : ComponentActivity() {
             audioRecord.release()
             Log.d(TAG, "Recording released")
         }
+    }
+
+    private fun checkIfAppIsOpened() {
+
     }
 
     companion object {

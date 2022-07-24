@@ -2,6 +2,7 @@ package com.uno.datalayer
 
 import android.net.Uri
 import android.os.Bundle
+import android.os.Message
 import android.util.Log
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -56,6 +57,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        binding.talk.setOnClickListener {
+            val message = binding.editText.text.toString()
+            sendMessage(message)
+        }
+
         binding.launch.setOnClickListener {
             startWearableActivity()
         }
@@ -108,6 +114,26 @@ class MainActivity : ComponentActivity() {
                 throw cancellationException
             } catch (exception: Exception) {
                 Log.d(TAG, "Starting activity failed: $exception")
+            }
+        }
+    }
+
+    private fun sendMessage(message: String) {
+        lifecycleScope.launch {
+            try {
+                val request = PutDataMapRequest.create(MESSAGE_PATH).apply {
+                    dataMap.putString(MESSAGE_KEY, message)
+                }
+                    .asPutDataRequest()
+                    .setUrgent()
+
+                val result = dataClient.putDataItem(request).await()
+
+                Log.d(TAG, "Message Sent! DataItem saved: $result")
+            } catch (cancellationException: CancellationException) {
+                throw cancellationException
+            } catch (exception: Exception) {
+                Log.d(TAG, "Message Sending Failed! Saving DataItem failed: $exception")
             }
         }
     }
