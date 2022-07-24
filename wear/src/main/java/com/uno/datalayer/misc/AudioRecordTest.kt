@@ -1,4 +1,4 @@
-package com.uno.datalayer
+package com.uno.datalayer.misc
 
 import android.Manifest
 import android.content.Context
@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View.OnClickListener
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
